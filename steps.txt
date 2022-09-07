@@ -1,3 +1,18 @@
+Warning: Only upload mp4s from texts that you have legal permission to post
+create an image folder called image
+find an image you want as the cover of the video and put it in the folder.
+create a .env file and put ex: IMAGE_PATH = ./image/SomeImage.jpg
+Download ffmpeg, Tutorial: https://www.youtube.com/watch?v=IECI72XEox0&ab_channel=TroubleChute
+If running ffmpeg in your terminal doesnt do what the tutorial does, just paste the path on both user and system variables.
+Once you finish the tutorial and have the path to the ffmpeg exe files,
+put it in the .env file, ex: FFMPEG_PATH = C:\Users\User\Desktop\ffmpeg\ffmpeg.exe
+Create a google account to set up a youtube account, and save your username and password in the .env,
+ex:
+EMAIL = SomeEmail@gmail.com
+PASSWORD = SomePassword
+You can go to youtube studio, then to settings to apply for more advanced features to allow more uploads per day.
+
+
 npm init -y
 npm i puppeteer
 npm install dotenv --save
