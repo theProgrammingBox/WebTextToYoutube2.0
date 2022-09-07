@@ -11,7 +11,16 @@ ex:
 EMAIL = SomeEmail@gmail.com
 PASSWORD = SomePassword
 You can go to youtube studio, then to settings to apply for more advanced features to allow more uploads per day.
-
+Once you have found legal novels to audioize, in the .env, put
+ex:
+NOVEL_TITLE = TheNovelTitle
+NOVEL_LINK_PREFIX = https://Website/chapter-
+NOVEL_LINK_SUFFIX = /
+Next, find the html path to select all the wanted texts,
+Tutorial: https://www.youtube.com/watch?v=lgyszZhAZOI&ab_channel=LearnWebCode
+Timestep: 10:00 - 11:30
+Paste the selector in the .env, ex:
+TEXT_PATH_SELECTOR = "#main > div > p"
 
 npm init -y
 npm i puppeteer
