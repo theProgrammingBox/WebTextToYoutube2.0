@@ -1,0 +1,6 @@
+npm init -y
+npm i puppeteer
+npm install dotenv --save
+npm install gtts
+npm install fluent-ffmpeg
+npm install --save get-mp3-duration
