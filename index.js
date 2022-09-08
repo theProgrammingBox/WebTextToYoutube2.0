@@ -158,3 +158,5 @@ process.setMaxListeners(MaxThreads);
 
     await browser.close();
 })();
+
+// upload limit div[class="error-short style-scope ytcp-uploads-dialog"]
