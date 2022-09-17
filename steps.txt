@@ -30,3 +30,13 @@ npm install gtts
 npm install fluent-ffmpeg
 npm install --save get-mp3-duration
 npm install user-agents
+
+now your .env should look like this
+IMAGE_PATH = ./image/SomeImage.jpg
+FFMPEG_PATH = C:\Users\User\Desktop\ffmpeg\ffmpeg.exe
+EMAIL = SomeEmail@gmail.com
+PASSWORD = SomePassword
+NOVEL_TITLE = TheNovelTitle
+NOVEL_LINK_PREFIX = https://Website/chapter-
+NOVEL_LINK_SUFFIX = /
+TEXT_PATH_SELECTOR = "#main > div > p"
