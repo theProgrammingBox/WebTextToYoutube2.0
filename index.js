@@ -337,7 +337,7 @@ let chapterTitle = `${NovelTitle} chapter ${chapter}`;
 let mp4Path = `./mp4s/${chapterTitle}.mp4`;
 let mp3Path = `./mp3s/${chapterTitle}.mp3`;
 let textfilePath = `./textfiles/${chapterTitle}.txt`;
-new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path);
+new gTTS(fs.readFileSync(textfilePath, "utf8")).save(mp3Path);
 
 async function BufferMp4s() {
     let numWorkers = 0;
