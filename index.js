@@ -40,6 +40,23 @@ async function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 
         }), selector, timeout);
 }
 
+async function waitForFile(fileName, timeout = 50) {  // 50 ticks = 5 seconds
+    while (!fs.existsSync(fileName)) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    let size = fs.statSync(fileName).size;
+    let currSize = size;
+    let tick = 0;
+    while (size == currSize) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        currSize = fs.statSync(fileName).size;
+        tick++;
+        if (tick > timeout) {
+            break;
+        }
+    }
+}
+
 puppeteer.launch({ headless: false }).then(async browser => {
     console.log("IMAGE_PATH: ", ImagePath);
     console.log("FFMPEG_PATH: ", FfmpegPath);
@@ -147,8 +164,8 @@ puppeteer.launch({ headless: false }).then(async browser => {
         console.log("\n");
     }
 
-    BufferTextfiles();
-    BufferMp4s();
+    // BufferTextfiles();
+    // BufferMp4s();
 
     let chapter = 1;
     while (true) {
@@ -161,9 +178,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
         }
 
         let mp4Path = `./mp4s/${chapterTitle}.mp4`;
-        while (!fs.existsSync(mp4Path) || fs.statSync(mp4Path).size === 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        await waitForFile(mp4Path);
 
         await page.goto("https://www.youtube.com/upload");
         const elementHandle = await page.$('input[type="file"]');
@@ -312,7 +327,7 @@ async function BufferTextfiles() {
             }
 
             if (texts.length === 0) {
-                console.log(`\t\t\terror getting ${chapterTitle}`);
+                console.log(`\t\t\tError getting ${chapterTitle} textfile`);
                 browser.close();
                 browser = await puppeteer.launch({ headless: true });
                 page = await browser.newPage();
@@ -362,9 +377,7 @@ async function BufferMp4s() {
         let mp3Path = `./mp3s/${chapterTitle}.mp3`;
         let textfilePath = `./textfiles/${chapterTitle}.txt`;
 
-        while (!fs.existsSync(textfilePath)) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        await waitForFile(textfilePath);
 
         await new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path, () => {
             console.log(`\t\t${chapterTitle} mp3 saved`);
