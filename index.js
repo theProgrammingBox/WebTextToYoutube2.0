@@ -179,8 +179,12 @@ puppeteer.launch({ headless: false }).then(async browser => {
         let playlistTitles = await page.evaluate(() => {
             return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
         });
+        for (let i = 0; i < playlistTitles.length; i++) {
+            console.log(playlistTitles[i]);
+        }
 
         let playlistIndex = playlistTitles.indexOf(NovelTitle);
+        console.log(`\nFound playlist "${NovelTitle}" at index ${playlistIndex}`);
 
         await page.waitForSelector(`ytcp-ve[class="style-scope ytcp-checkbox-group"]:nth-child(${playlistIndex + 2})`);
         await page.click(`ytcp-ve[class="style-scope ytcp-checkbox-group"]:nth-child(${playlistIndex + 2})`);
