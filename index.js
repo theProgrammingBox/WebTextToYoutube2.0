@@ -21,8 +21,8 @@ process.setMaxListeners(2);
 const MaxMp3Workers = 1;
 let videos = [];
 
-async function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 seconds
-    return await page.evaluate((selector, timeout) =>
+function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 seconds
+    return page.evaluate((selector, timeout) =>
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
@@ -40,15 +40,15 @@ async function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 
         }), selector, timeout);
 }
 
-async function waitForFile(fileName, timeout = 50) {  // 50 ticks = 5 seconds
+function waitForFile(fileName, timeout = 50) {  // 50 ticks = 5 seconds
     while (!fs.existsSync(fileName)) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        new Promise(resolve => setTimeout(resolve, 100));
     }
     let size = fs.statSync(fileName).size;
     let currSize = size;
     let tick = 0;
     while (size == currSize) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        new Promise(resolve => setTimeout(resolve, 100));
         currSize = fs.statSync(fileName).size;
         tick++;
         if (tick > timeout) {
@@ -89,10 +89,12 @@ puppeteer.launch({ headless: false }).then(async browser => {
     // move the mouse in case the mouse is hovering on top of the playlist button
     await page.mouse.move(100000, 100000);
 
-    await page.waitForSelector('h3[class="playlist-title style-scope ytcp-playlist-row"]');
-    let currentPlaylistTitles = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
-    });
+    let currentPlaylistTitles = [];
+    if (await waitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
+        currentPlaylistTitles = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
+        });
+    }
     console.log("\nCurrent playlists:");
     for (let i = 0; i < currentPlaylistTitles.length; i++) {
         console.log(currentPlaylistTitles[i]);
@@ -108,8 +110,8 @@ puppeteer.launch({ headless: false }).then(async browser => {
         await page.waitForSelector('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
         await page.click('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
 
-        await page.waitForSelector('tp-yt-paper-item[test-id="UNLISTED"]');
-        await page.click('tp-yt-paper-item[test-id="UNLISTED"]');
+        await page.waitForSelector('tp-yt-paper-item[test-id="PRIVATE"]');
+        await page.click('tp-yt-paper-item[test-id="PRIVATE"]');
 
         await page.waitForSelector('ytcp-button[id="create-button"]');
         await page.click('ytcp-button[id="create-button"]');
@@ -164,8 +166,8 @@ puppeteer.launch({ headless: false }).then(async browser => {
         console.log("\n");
     }
 
-    // BufferTextfiles();
-    // BufferMp4s();
+    BufferTextfiles();
+    BufferMp4s();
 
     let chapter = 1;
     while (true) {
@@ -191,9 +193,16 @@ puppeteer.launch({ headless: false }).then(async browser => {
             'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]'
         );
 
-        let playlistTitles = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
-        });
+        let playlistTitles = [];
+        if (await waitForSelector(page, 'span[class="label label-text style-scope ytcp-checkbox-group"]')) {
+            playlistTitles = await page.evaluate(() => {
+                return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
+            });
+        } else {
+            console.log("No playlists found, exiting");
+            await browser.close();
+        }
+
         for (let i = 0; i < playlistTitles.length; i++) {
             console.log(playlistTitles[i]);
         }
@@ -217,8 +226,8 @@ puppeteer.launch({ headless: false }).then(async browser => {
         await page.waitForSelector("#step-badge-3");
         await page.click("#step-badge-3");
 
-        await page.waitForSelector('tp-yt-paper-radio-button[name="UNLISTED"]');
-        await page.click('tp-yt-paper-radio-button[name="UNLISTED"]');
+        await page.waitForSelector('tp-yt-paper-radio-button[name="PRIVATE"]');
+        await page.click('tp-yt-paper-radio-button[name="PRIVATE"]');
 
         await page.waitForSelector("#done-button");
         await page.click("#done-button");
@@ -229,8 +238,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
         fs.unlinkSync(mp4Path);
         chapter++;
     }
-
-    await browser.close();
 });
 
 async function BufferTextfiles() {
