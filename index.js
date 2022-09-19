@@ -18,7 +18,7 @@ const NovelLinkPrefix = process.env.NOVEL_LINK_PREFIX;
 const NovelLinkSuffix = process.env.NOVEL_LINK_SUFFIX;
 const TextPathSelector = process.env.TEXT_PATH_SELECTOR.split(",");
 process.setMaxListeners(2);
-const MaxMp3Workers = 8;
+const MaxMp3Workers = 1;
 let videos = [];
 
 async function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 seconds
@@ -40,7 +40,6 @@ async function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 
         }), selector, timeout);
 }
 
-/*
 puppeteer.launch({ headless: false }).then(async browser => {
     console.log("IMAGE_PATH: ", ImagePath);
     console.log("FFMPEG_PATH: ", FfmpegPath);
@@ -149,7 +148,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
     }
 
     BufferTextfiles();
-    // BufferMp4s();
+    BufferMp4s();
 
     let chapter = 1;
     while (true) {
@@ -214,9 +213,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
 
     await browser.close();
 });
-*/
-
-// BufferTextfiles();
 
 async function BufferTextfiles() {
     puppeteer.launch({ headless: true }).then(async browser => {
@@ -316,7 +312,7 @@ async function BufferTextfiles() {
             }
 
             if (texts.length === 0) {
-                console.log(`\t\t\t${chapterTitle} not found`);
+                console.log(`\t\t\terror getting ${chapterTitle}`);
                 browser.close();
                 browser = await puppeteer.launch({ headless: true });
                 page = await browser.newPage();
@@ -324,22 +320,18 @@ async function BufferTextfiles() {
                 continue;
             }
 
-            console.log(`\t\t\t${chapterTitle} found`);
-            fs.appendFileSync(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`);
+            console.log(`\t\t\t${chapterTitle} textfile saved`);
+            fs.writeFile(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`, (err) => { });
             chapter++;
         }
     });
 }
 
-// BufferMp4s();
-chapter = 2;
-let chapterTitle = `${NovelTitle} chapter ${chapter}`;
-let mp4Path = `./mp4s/${chapterTitle}.mp4`;
-let mp3Path = `./mp3s/${chapterTitle}.mp3`;
-let textfilePath = `./textfiles/${chapterTitle}.txt`;
-new gTTS(fs.readFileSync(textfilePath, "utf8")).save(mp3Path);
-
 async function BufferMp4s() {
+    fs.readdirSync("./mp3s").forEach(file => {
+        fs.unlinkSync(`./mp3s/${file}`);
+    });
+
     let numWorkers = 0;
     let chapter = 1;
     while (true) {
@@ -357,19 +349,25 @@ async function BufferMp4s() {
             if (fs.existsSync(mp4Path)) {
                 fs.unlinkSync(mp4Path);
             }
+            numWorkers--;
+            continue;
         }
 
         if (fs.existsSync(mp4Path) && fs.statSync(mp4Path).size !== 0) {
             console.log(`\t\t${chapterTitle} already in mp4s`);
+            numWorkers--;
             continue;
         }
 
         let mp3Path = `./mp3s/${chapterTitle}.mp3`;
         let textfilePath = `./textfiles/${chapterTitle}.txt`;
-        console.log(`\t\t${chapterTitle} mp3 in progress`);
-        await new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path, (err) => {
-            if (err) { throw err; }
-            console.log(`\t\t${chapterTitle} mp3 in progress`);
+
+        while (!fs.existsSync(textfilePath)) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        await new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path, () => {
+            console.log(`\t\t${chapterTitle} mp3 saved`);
             let duration = getMP3Duration(fs.readFileSync(mp3Path)) * 0.001;
             new ffmpeg(mp3Path)
                 .setFfmpegPath(FfmpegPath)
@@ -377,14 +375,11 @@ async function BufferMp4s() {
                 .inputFPS(1 / duration)
                 .loop(duration)
                 .save(mp4Path)
-                .on("end", (err) => {
-                    if (err) { throw err; }
-                    fs.unlink(textfilePath);
-                    fs.unlink(mp3Path);
+                .on("end", () => {
+                    fs.unlinkSync(textfilePath);
+                    fs.unlinkSync(mp3Path);
                     console.log(`\t${chapterTitle} mp4 saved`);
                     numWorkers--;
-                }).on("error", (err) => {
-                    if (err) { throw err; }
                 });
         });
     }
