@@ -21,7 +21,7 @@ process.setMaxListeners(2);
 const MaxMp3Workers = 1;
 let videos = [];
 
-function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 seconds
+function WaitForSelector(page, selector, timeout = 60) {  // 60 ticks = 6 seconds
     return page.evaluate((selector, timeout) =>
         new Promise((resolve) => {
             var ticks = 0;
@@ -40,22 +40,58 @@ function waitForSelector(page, selector, timeout = 50) {  // 50 ticks = 5 second
         }), selector, timeout);
 }
 
-function waitForFile(fileName, timeout = 50) {  // 50 ticks = 5 seconds
+async function WaitForFile(fileName, timeout = 40) {  // 40 ticks = 4 seconds
     while (!fs.existsSync(fileName)) {
-        new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
     let size = fs.statSync(fileName).size;
     let currSize = size;
     let tick = 0;
-    while (size == currSize) {
-        new Promise(resolve => setTimeout(resolve, 100));
+    while (true) {
+        await new Promise(resolve => setTimeout(resolve, 100));
         currSize = fs.statSync(fileName).size;
-        tick++;
-        if (tick > timeout) {
+        if (size != currSize) {
+            size = currSize;
+            tick = 0;
+        } else if (++tick > timeout) {
             break;
         }
     }
 }
+
+async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
+    await page.evaluate((timeout) =>
+        new Promise((resolve) => {
+            var scrollTop = -1;
+            var ticks = 0;
+            const interval = setInterval(() => {
+                window.scrollBy(0, 100000);
+                if (document.documentElement.scrollTop !== scrollTop) {
+                    scrollTop = document.documentElement.scrollTop;
+                    ticks = 0;
+                } else {
+                    ticks++;
+                }
+                if (ticks > timeout) {
+                    clearInterval(interval);
+                    resolve();
+                }
+            }, 100);
+        }), timeout);
+}
+
+// (async () => {
+//     let chapterTitle = `${NovelTitle} chapter ${2}`;
+//     let mp3Path = `./mp3s/${chapterTitle}.mp3`;
+//     let textfilePath = `./textfiles/${chapterTitle}.txt`;
+//     await WaitForFile(textfilePath);
+//     console.log(`\t\t${chapterTitle} mp3 saved`);
+//     await new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path);
+//     await WaitForFile(mp3Path);
+//     console.log(`\t\t${chapterTitle} mp3 saved`);
+// })();
+
+// return;
 
 puppeteer.launch({ headless: false }).then(async browser => {
     console.log("IMAGE_PATH: ", ImagePath);
@@ -90,7 +126,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
     await page.mouse.move(100000, 100000);
 
     let currentPlaylistTitles = [];
-    if (await waitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
+    if (await WaitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
         currentPlaylistTitles = await page.evaluate(() => {
             return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
         });
@@ -131,26 +167,8 @@ puppeteer.launch({ headless: false }).then(async browser => {
         });
         let playlistHref = currentPlaylistHrefs[playlistIndex];
         await page.goto(playlistHref);
-        await page.evaluate(
-            () =>
-                new Promise((resolve) => {
-                    var scrollTop = -1;
-                    var ticks = 0;
-                    const interval = setInterval(() => {
-                        window.scrollBy(0, 100000);
-                        if (document.documentElement.scrollTop !== scrollTop) {
-                            scrollTop = document.documentElement.scrollTop;
-                            ticks = 0;
-                            return;
-                        } else {
-                            ticks++;
-                        }
-                        if (ticks > 50) {  // 50 ticks = 5 seconds
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    }, 100);
-                }));
+
+        await ScrollToBottom(page);
 
         videos = await page.evaluate(() => {
             return Array.from(
@@ -180,7 +198,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
         }
 
         let mp4Path = `./mp4s/${chapterTitle}.mp4`;
-        await waitForFile(mp4Path);
+        await WaitForFile(mp4Path);
 
         await page.goto("https://www.youtube.com/upload");
         const elementHandle = await page.$('input[type="file"]');
@@ -194,7 +212,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
         );
 
         let playlistTitles = [];
-        if (await waitForSelector(page, 'span[class="label label-text style-scope ytcp-checkbox-group"]')) {
+        if (await WaitForSelector(page, 'span[class="label label-text style-scope ytcp-checkbox-group"]')) {
             playlistTitles = await page.evaluate(() => {
                 return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
             });
@@ -275,7 +293,7 @@ async function BufferTextfiles() {
             let texts = [];
             let index = 0;
             while (index < TextPathSelector.length && texts.length === 0) {
-                if (await waitForSelector(page, TextPathSelector[index], 100)) {    // 10 seconds
+                if (await WaitForSelector(page, TextPathSelector[index], 100)) {    // 10 seconds
                     texts = await page.evaluate((TextPathSelector) => {
                         return Array.from(document.querySelectorAll(TextPathSelector))
                             .filter(p => !p.querySelector("a")) // blacklist items
@@ -388,7 +406,7 @@ async function BufferMp4s() {
         let mp3Path = `./mp3s/${chapterTitle}.mp3`;
         let textfilePath = `./textfiles/${chapterTitle}.txt`;
 
-        await waitForFile(textfilePath);
+        await WaitForFile(textfilePath);
 
         await new gTTS(fs.readFileSync(textfilePath, "utf8"), "en").save(mp3Path, () => {
             console.log(`\t\t${chapterTitle} mp3 saved`);
