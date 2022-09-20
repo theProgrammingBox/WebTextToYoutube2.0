@@ -386,7 +386,7 @@ async function BufferTextfiles() {
             let texts = [];
             let index = 0;
             while (index < TextPathSelector.length && texts.length === 0) {
-                if (await WaitForSelector(page, TextPathSelector[index], 100)) {    // 10 seconds
+                if (await WaitForSelector(page, TextPathSelector[index])) {
                     texts = await page.evaluate((TextPathSelector) => {
                         return Array.from(document.querySelectorAll(TextPathSelector))
                             .filter(p => !p.querySelector("a")) // blacklist items
@@ -448,7 +448,12 @@ async function BufferTextfiles() {
                 index++;
             }
 
-            if (texts.length === 0) {
+            if (texts.length !== 0) {
+                console.log(`\t\t\t${chapterTitle} textfile saved`);
+                fs.writeFile(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`, (err) => { });
+                chapter++;
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
                 console.log(`\t\t\tError getting ${chapterTitle} textfile`);
                 browser.close();
                 browser = await puppeteer.launch({ headless: true });
@@ -456,10 +461,6 @@ async function BufferTextfiles() {
                 await page.setUserAgent(userAgent.toString());
                 continue;
             }
-
-            console.log(`\t\t\t${chapterTitle} textfile saved`);
-            fs.writeFile(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`, (err) => { });
-            chapter++;
         }
     });
 }
