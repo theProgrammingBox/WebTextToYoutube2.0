@@ -21,7 +21,7 @@ Tutorial: https://www.youtube.com/watch?v=lgyszZhAZOI&ab_channel=LearnWebCode
 Timestep: 10:00 - 11:30
 Paste the selector in the .env, ex:
 TEXT_PATH_SELECTOR = "#main > div > p"
-create a folder called textfiles, mp3s, and mp4s
+create a folder called errorlogs, textfiles, mp3s, and mp4s
 
 npm init -y
 npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth

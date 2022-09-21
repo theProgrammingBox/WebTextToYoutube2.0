@@ -11,18 +11,19 @@ puppeteer.use(StealthPlugin())
 
 const ImagePath = process.env.IMAGE_PATH;
 const FfmpegPath = process.env.FFMPEG_PATH;
-const Email = process.env.EMAIL;
-const Password = process.env.PASSWORD;
+const Email = process.env.EMAIL.split(",");
+const Password = process.env.PASSWORD.split(",");
 const NovelTitle = process.env.NOVEL_TITLE;
 const NovelLinkPrefix = process.env.NOVEL_LINK_PREFIX;
 const NovelLinkSuffix = process.env.NOVEL_LINK_SUFFIX;
 const TextPathSelector = process.env.TEXT_PATH_SELECTOR.split(",");
 process.setMaxListeners(2);
-const MaxMp3Workers = 1;
+const MaxMp3Workers = 16;
 let videos = [];
+let firstLoop = true;
 
-function WaitForSelector(page, selector, timeout = 60) {  // 60 ticks = 6 seconds
-    return page.evaluate((selector, timeout) =>
+async function WaitForSelector(page, selector, timeout = 60) {  // 60 ticks = 6 seconds
+    return await page.evaluate((selector, timeout) =>
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
@@ -81,7 +82,7 @@ async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
 }
 
 // (async () => {
-//     let chapterTitle = `${NovelTitle} chapter ${2}`;
+//     let chapterTitle = `${NovelTitle} chapter ${5}`;
 //     let mp3Path = `./mp3s/${chapterTitle}.mp3`;
 //     let textfilePath = `./textfiles/${chapterTitle}.txt`;
 //     await WaitForFile(textfilePath);
@@ -93,7 +94,10 @@ async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
 
 // return;
 
-puppeteer.launch({ headless: false }).then(async browser => {
+puppeteer.launch({ headless: true }).then(async browser => {
+    fs.readdirSync("./errorlogs").forEach(file => {
+        fs.unlinkSync(path.join("./errorlogs", file));
+    });
     console.log("IMAGE_PATH: ", ImagePath);
     console.log("FFMPEG_PATH: ", FfmpegPath);
     console.log("EMAIL: ", Email);
@@ -106,156 +110,245 @@ puppeteer.launch({ headless: false }).then(async browser => {
         console.log(TextPathSelector[i]);
     }
 
-    const page = await browser.newPage();
-    await page.goto("https://studio.youtube.com/channel/UC/playlists");
-    await page.waitForSelector('input[type="email"]');
-    await page.type('input[type="email"]', Email);
-    await Promise.all([
-        page.waitForNavigation(),
-        await page.keyboard.press("Enter"),
-    ]);
-    await page.waitForSelector('input[type="password"]', { visible: true });
-    await page.type('input[type="password"]', Password);
-    const res = await Promise.all([
-        page.waitForFunction(() => location.href.includes("https://studio.youtube.com/channel/") && location.href.includes("/playlists")),
-        await page.keyboard.press("Enter"),
-    ]);
-    console.log("\nLogged in");
+    let page = await browser.newPage();
+    let accountIndex = 0;
+    while (true) {
+        await page.close();
+        page = await browser.newPage();
+        // await page.setUserAgent(userAgent.toString());
+        // use chrome and see if that stops the popup
 
-    // move the mouse in case the mouse is hovering on top of the playlist button
-    await page.mouse.move(100000, 100000);
+        if (++accountIndex >= Email.length) {
+            accountIndex = 0;
+        }
 
-    let currentPlaylistTitles = [];
-    if (await WaitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
-        currentPlaylistTitles = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
-        });
-    }
-    console.log("\nCurrent playlists:");
-    for (let i = 0; i < currentPlaylistTitles.length; i++) {
-        console.log(currentPlaylistTitles[i]);
-    }
+        await page.goto("https://studio.youtube.com/channel/UC/playlists");
+        if (await WaitForSelector('input[type="email"]')) {
+            await page.type('input[type="email"]', Email[accountIndex]);
+            await page.keyboard.press("Enter");
+        } else {
+            await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+            continue;
+        }
 
-    if (!currentPlaylistTitles.includes(NovelTitle)) {
-        await page.waitForSelector('ytcp-button[id="new-playlist-button"]');
-        await page.click('ytcp-button[id="new-playlist-button"]');
+        if (await WaitForSelector('input[type="password"]')) {
+            await page.type('input[type="password"]', Password[accountIndex]);
+            await page.keyboard.press("Enter");
+        } else {
+            await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+            continue;
+        }
 
-        await page.waitForSelector('textarea[class="style-scope ytcp-form-textarea"]');
-        await page.type('textarea[class="style-scope ytcp-form-textarea"]', NovelTitle);
+        console.log("\nLogged in");
 
-        await page.waitForSelector('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
-        await page.click('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
+        // move the mouse in case the mouse is hovering on top of the playlist button
+        await page.mouse.move(100000, 100000);
 
-        await page.waitForSelector('tp-yt-paper-item[test-id="PRIVATE"]');
-        await page.click('tp-yt-paper-item[test-id="PRIVATE"]');
-
-        await page.waitForSelector('ytcp-button[id="create-button"]');
-        await page.click('ytcp-button[id="create-button"]');
-
-        while (!currentPlaylistTitles.includes(NovelTitle)) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+        let currentPlaylistTitles = [];
+        if (await WaitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
             currentPlaylistTitles = await page.evaluate(() => {
                 return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
             });
         }
-        console.log(`\nCreated playlist "${NovelTitle}"`);
-    } else {
-        let playlistIndex = currentPlaylistTitles.indexOf(NovelTitle);
-        await page.waitForSelector('div[id="hover-items"] > a:nth-child(1)');
-        let currentPlaylistHrefs = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('div[id="hover-items"] > a:nth-child(1)')).map(p => p.href);
-        });
-        let playlistHref = currentPlaylistHrefs[playlistIndex];
-        await page.goto(playlistHref);
-
-        await ScrollToBottom(page);
-
-        videos = await page.evaluate(() => {
-            return Array.from(
-                document.querySelectorAll("#video-title"),
-                (video) => video.innerText
-            );
-        });
-
-        console.log("\nCurrent videos:");
-        for (let i = 0; i < videos.length; i++) {
-            console.log(videos[i]);
-        }
-        console.log("\n");
-    }
-
-    BufferTextfiles();
-    BufferMp4s();
-
-    let chapter = 1;
-    while (true) {
-        let chapterTitle = `${NovelTitle} chapter ${chapter}`;
-
-        if (videos.includes(chapterTitle)) {
-            console.log(`${chapterTitle} already in videos`);
-            chapter++;
-            continue;
+        console.log("\nCurrent playlists:");
+        for (let i = 0; i < currentPlaylistTitles.length; i++) {
+            console.log(currentPlaylistTitles[i]);
         }
 
-        let mp4Path = `./mp4s/${chapterTitle}.mp4`;
-        await WaitForFile(mp4Path);
+        if (!currentPlaylistTitles.includes(NovelTitle)) {
+            // await page.waitForSelector('ytcp-button[id="new-playlist-button"]');
+            if (await WaitForSelector(page, 'ytcp-button[id="new-playlist-button"]')) {
+                await page.click('ytcp-button[id="new-playlist-button"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
 
-        await page.goto("https://www.youtube.com/upload");
-        const elementHandle = await page.$('input[type="file"]');
-        await elementHandle.uploadFile(mp4Path);
+            // await page.waitForSelector('textarea[class="style-scope ytcp-form-textarea"]');
+            if (await WaitForSelector(page, 'textarea[class="style-scope ytcp-form-textarea"]')) {
+                await page.type('textarea[class="style-scope ytcp-form-textarea"]', NovelTitle);
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
 
-        await page.waitForSelector(
-            'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]'
-        );
-        await page.click(
-            'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]'
-        );
+            // await page.waitForSelector('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
+            if (await WaitForSelector(page, 'ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]')) {
+                await page.click('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
 
-        let playlistTitles = [];
-        if (await WaitForSelector(page, 'span[class="label label-text style-scope ytcp-checkbox-group"]')) {
-            playlistTitles = await page.evaluate(() => {
-                return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
-            });
+            // await page.waitForSelector('tp-yt-paper-item[test-id="PRIVATE"]');
+            if (await WaitForSelector(page, 'tp-yt-paper-item[test-id="PRIVATE"]')) {
+                await page.click('tp-yt-paper-item[test-id="PRIVATE"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector('ytcp-button[id="create-button"]');
+            if (await WaitForSelector(page, 'ytcp-button[id="create-button"]')) {
+                await page.click('ytcp-button[id="create-button"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            while (!currentPlaylistTitles.includes(NovelTitle)) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                currentPlaylistTitles = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
+                });
+            }
+            console.log(`\nCreated playlist "${NovelTitle}"`);
         } else {
-            console.log("No playlists found, exiting");
-            await browser.close();
+            let playlistIndex = currentPlaylistTitles.indexOf(NovelTitle);
+            // await page.waitForSelector('div[id="hover-items"] > a:nth-child(1)');
+            let currentPlaylistHrefs;
+            if (await WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)')) {
+                currentPlaylistHrefs = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll('div[id="hover-items"] > a:nth-child(1)')).map(p => p.href);
+                });
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+            let playlistHref = currentPlaylistHrefs[playlistIndex];
+            await page.goto(playlistHref);
+
+            await ScrollToBottom(page);
+
+            if (await WaitForSelector(page, "#video-title")) {
+                videos = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll("#video-title")).map(p => p.href);
+                });
+
+                console.log("\nCurrent videos:");
+                for (let i = 0; i < videos.length; i++) {
+                    console.log(videos[i]);
+                }
+                console.log("\n");
+            } else {
+                console.log("No videos found\n");
+            }
         }
 
-        for (let i = 0; i < playlistTitles.length; i++) {
-            console.log(playlistTitles[i]);
+        if (firstLoop) {
+            BufferTextfiles(); // run these at the same time
+            BufferMp3s();
+            BufferMp4s();
+            firstLoop = false;
         }
 
-        let playlistIndex = playlistTitles.indexOf(NovelTitle);
-        console.log(`\nFound playlist "${NovelTitle}" at index ${playlistIndex}`);
+        let chapter = 1;
+        while (true) {
+            let chapterTitle = `${NovelTitle} chapter ${chapter}`;
 
-        await page.waitForSelector(`ytcp-ve[class="style-scope ytcp-checkbox-group"]:nth-child(${playlistIndex + 2})`);
-        await page.click(`ytcp-ve[class="style-scope ytcp-checkbox-group"]:nth-child(${playlistIndex + 2})`);
+            if (videos.includes(chapterTitle)) {
+                console.log(`${chapterTitle} already in videos`);
+                chapter++;
+                continue;
+            }
 
-        await page.waitForSelector(
-            'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]'
-        );
-        await page.click(
-            'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]'
-        );
+            let mp4Path = `./mp4s/${chapterTitle}.mp4`;
+            await WaitForFile(mp4Path);
 
-        await page.waitForSelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
-        await page.click('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
+            await page.goto("https://www.youtube.com/upload");
+            if (await WaitForSelector(page, 'input[type="file"]')) {
+                await page.$('input[type="file"]').uploadFile(mp4Path);
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+            // const elementHandle = await page.$('input[type="file"]');
+            // await elementHandle.uploadFile(mp4Path);
 
-        await page.waitForSelector("#step-badge-3");
-        await page.click("#step-badge-3");
+            // await page.waitForSelector(
+            //     'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]'
+            // );
+            if (await WaitForSelector(page, 'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]')) {
+                await page.click('ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
 
-        await page.waitForSelector('tp-yt-paper-radio-button[name="PRIVATE"]');
-        await page.click('tp-yt-paper-radio-button[name="PRIVATE"]');
+            let playlistTitles = [];
+            if (await WaitForSelector(page, 'span[class="label label-text style-scope ytcp-checkbox-group"]')) {
+                playlistTitles = await page.evaluate(() => {
+                    return Array.from(document.querySelectorAll('span[class="label label-text style-scope ytcp-checkbox-group"]')).map(p => p.innerText);
+                });
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
 
-        await page.waitForSelector("#done-button");
-        await page.click("#done-button");
+            let playlistIndex = playlistTitles.indexOf(NovelTitle);
 
-        await page.waitForSelector('ytcp-button[id="close-button"]');
-        console.log(`Uploaded ${chapterTitle}`);
-        videos.push(chapterTitle);
-        fs.unlinkSync(mp4Path);
-        chapter++;
-    }
+            // await page.waitForSelector(`#checkbox-${playlistIndex}`);
+            if (await WaitForSelector(page, `#checkbox-${playlistIndex}`)) {
+                await page.click(`#checkbox-${playlistIndex}`);
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector(
+            //     'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]'
+            // );
+            if (await WaitForSelector(page, 'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]')) {
+                await page.click('ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
+            if (await WaitForSelector(page, 'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]')) {
+                await page.click('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector("#step-badge-3");
+            if (await WaitForSelector(page, "#step-badge-3")) {
+                await page.click("#step-badge-3");
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector('tp-yt-paper-radio-button[name="PRIVATE"]');
+            if (await WaitForSelector(page, 'tp-yt-paper-radio-button[name="PRIVATE"]')) {
+                await page.click('tp-yt-paper-radio-button[name="PRIVATE"]');
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector("#done-button");
+            if (await WaitForSelector(page, "#done-button")) {
+                await page.click("#done-button");
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+
+            // await page.waitForSelector('ytcp-button[id="close-button"]');
+            if (await WaitForSelector(page, 'ytcp-button[id="close-button"]')) {
+                console.log(`Uploaded ${chapterTitle}`);
+                videos.push(chapterTitle);
+                fs.unlinkSync(mp4Path);
+                chapter++;
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
+                continue;
+            }
+        };
+    };
 });
 
 async function BufferTextfiles() {
@@ -293,7 +386,7 @@ async function BufferTextfiles() {
             let texts = [];
             let index = 0;
             while (index < TextPathSelector.length && texts.length === 0) {
-                if (await WaitForSelector(page, TextPathSelector[index], 100)) {    // 10 seconds
+                if (await WaitForSelector(page, TextPathSelector[index])) {
                     texts = await page.evaluate((TextPathSelector) => {
                         return Array.from(document.querySelectorAll(TextPathSelector))
                             .filter(p => !p.querySelector("a")) // blacklist items
@@ -355,7 +448,12 @@ async function BufferTextfiles() {
                 index++;
             }
 
-            if (texts.length === 0) {
+            if (texts.length !== 0) {
+                console.log(`\t\t\t${chapterTitle} textfile saved`);
+                fs.writeFile(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`, (err) => { });
+                chapter++;
+            } else {
+                await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
                 console.log(`\t\t\tError getting ${chapterTitle} textfile`);
                 browser.close();
                 browser = await puppeteer.launch({ headless: true });
@@ -363,10 +461,6 @@ async function BufferTextfiles() {
                 await page.setUserAgent(userAgent.toString());
                 continue;
             }
-
-            console.log(`\t\t\t${chapterTitle} textfile saved`);
-            fs.writeFile(`./textfiles/${chapterTitle}.txt`, `${chapterTitle} ${texts.join(" ")}`, (err) => { });
-            chapter++;
         }
     });
 }
