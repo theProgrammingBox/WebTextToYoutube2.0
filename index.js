@@ -27,7 +27,7 @@ async function WaitForSelector(page, selector, option = true, timeout = 60) {  /
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
-                console.log(ticks);
+                // console.log(ticks);
                 if (document.querySelector(selector)) {
                     if (option || document.querySelector(selector).offsetParent) {
                         clearInterval(interval);
@@ -110,12 +110,12 @@ puppeteer.launch({ headless: false }).then(async browser => {
         browser.close();
         browser = await puppeteer.launch({ headless: false });
         let page = await browser.newPage();
-        page.on('console', async (msg) => {
-            const msgArgs = msg.args();
-            for (let i = 0; i < msgArgs.length; ++i) {
-              console.log(await msgArgs[i].jsonValue());
-            }
-          });
+        // page.on('console', async (msg) => {
+        //     const msgArgs = msg.args();
+        //     for (let i = 0; i < msgArgs.length; ++i) {
+        //       console.log(await msgArgs[i].jsonValue());
+        //     }
+        //   });
         // await page.setUserAgent(userAgent.toString());
         // use chrome and see if that stops the popup
 
@@ -163,7 +163,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
         }
 
         if (!currentPlaylistTitles.includes(NovelTitle)) {
-            // await page.WaitForSelector(page, 'ytcp-button[id="new-playlist-button"]');
             if (await WaitForSelector(page, 'ytcp-button[id="new-playlist-button"]')) {
                 await page.click('ytcp-button[id="new-playlist-button"]');
             } else {
@@ -171,7 +170,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 continue;
             }
 
-            // await page.WaitForSelector(page, 'textarea[class="style-scope ytcp-form-textarea"]');
             if (await WaitForSelector(page, 'textarea[class="style-scope ytcp-form-textarea"]')) {
                 await page.type('textarea[class="style-scope ytcp-form-textarea"]', NovelTitle);
             } else {
@@ -179,7 +177,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 continue;
             }
 
-            // await page.WaitForSelector(page, 'ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
             if (await WaitForSelector(page, 'ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]')) {
                 await page.click('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
             } else {
@@ -187,7 +184,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 continue;
             }
 
-            // await page.WaitForSelector(page, 'tp-yt-paper-item[test-id="PRIVATE"]');
             if (await WaitForSelector(page, 'tp-yt-paper-item[test-id="PRIVATE"]')) {
                 await page.click('tp-yt-paper-item[test-id="PRIVATE"]');
             } else {
@@ -195,7 +191,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 continue;
             }
 
-            // await page.WaitForSelector(page, 'ytcp-button[id="create-button"]');
             if (await WaitForSelector(page, 'ytcp-button[id="create-button"]')) {
                 await page.click('ytcp-button[id="create-button"]');
             } else {
@@ -215,7 +210,6 @@ puppeteer.launch({ headless: false }).then(async browser => {
             console.log(`\nCreated playlist "${NovelTitle}"`);
         } else {
             let playlistIndex = currentPlaylistTitles.indexOf(NovelTitle);
-            // await page.WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)');
             let currentPlaylistHrefs = [];
             if (await WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)')) {
                 currentPlaylistHrefs = await page.evaluate(() => {
@@ -259,9 +253,9 @@ puppeteer.launch({ headless: false }).then(async browser => {
             fs.readdirSync("./mp4s").forEach(file => {
                 fs.unlinkSync(`./mp4s/${file}`);
             });
-            BufferTextfiles(); // run these at the same time
-            BufferMp3s();
-            BufferMp4s();
+            // BufferTextfiles(); // run these at the same time
+            // BufferMp3s();
+            // BufferMp4s();
             firstLoop = false;
         }
 
