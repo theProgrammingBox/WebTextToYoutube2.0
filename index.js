@@ -22,23 +22,21 @@ const MaxMp3Workers = 16;
 let videos = [];
 let firstLoop = true;
 
-async function WaitForSelector(page, selector, timeout = 60) {  // 60 ticks = 6 seconds
-    return await page.evaluate((selector, timeout) =>
+async function WaitForSelector(page, selector, timeout = 60, option = true) {  // 60 ticks = 6 seconds
+    return await page.evaluate((selector, timeout, option) =>
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
-                if (document.querySelector(selector).offsetParent) {    // visible element
+                if (document.querySelector(selector) && (option || document.querySelector(selector).offsetParent)) {    // visible element
                     clearInterval(interval);
                     resolve(true);
-                } else {
-                    ticks++;
                 }
-                if (ticks > timeout) {
+                if (++ticks > timeout) {
                     clearInterval(interval);
                     resolve(false);
                 }
             }, 100);
-        }), selector, timeout);
+        }), selector, timeout, option);
 }
 
 async function WaitForFile(fileName, timeout = 40) {  // 40 ticks = 4 seconds
@@ -70,10 +68,8 @@ async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
                 if (document.documentElement.scrollTop !== scrollTop) {
                     scrollTop = document.documentElement.scrollTop;
                     ticks = 0;
-                } else {
-                    ticks++;
                 }
-                if (ticks > timeout) {
+                if (++ticks > timeout) {
                     clearInterval(interval);
                     resolve();
                 }
@@ -110,11 +106,18 @@ puppeteer.launch({ headless: false }).then(async browser => {
         console.log(TextPathSelector[i]);
     }
 
-    let page = await browser.newPage();
+    let page;
     let accountIndex = 0;
     while (true) {
-        await page.close();
+        browser.close();
+        browser = await puppeteer.launch({ headless: false });
         page = await browser.newPage();
+        // page.on('console', async (msg) => {
+        //     const msgArgs = msg.args();
+        //     for (let i = 0; i < msgArgs.length; ++i) {
+        //       console.log(await msgArgs[i].jsonValue());
+        //     }
+        //   });
         // await page.setUserAgent(userAgent.toString());
         // use chrome and see if that stops the popup
 
@@ -131,7 +134,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
             continue;
         }
 
-        if (await WaitForSelector(page, 'input[type="password"]')) {
+        if (await WaitForSelector(page, 'input[type="password"]', false)) {
             await page.type('input[type="password"]', Password[accountIndex]);
             await Promise.all([
                 page.waitForNavigation(),
@@ -149,6 +152,7 @@ puppeteer.launch({ headless: false }).then(async browser => {
 
         let currentPlaylistTitles = [];
         if (await WaitForSelector(page, 'h3[class="playlist-title style-scope ytcp-playlist-row"]')) {
+            console.log("Getting playlist titles");
             currentPlaylistTitles = await page.evaluate(() => {
                 return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
             });
@@ -201,6 +205,9 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 continue;
             }
 
+            // move the mouse in case the mouse is hovering on top of the playlist button
+            await page.mouse.move(100000, 100000);
+
             while (!currentPlaylistTitles.includes(NovelTitle)) {
                 await new Promise(resolve => setTimeout(resolve, 100));
                 currentPlaylistTitles = await page.evaluate(() => {
@@ -211,11 +218,12 @@ puppeteer.launch({ headless: false }).then(async browser => {
         } else {
             let playlistIndex = currentPlaylistTitles.indexOf(NovelTitle);
             // await page.WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)');
-            let currentPlaylistHrefs;
+            let currentPlaylistHrefs = [];
             if (await WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)')) {
                 currentPlaylistHrefs = await page.evaluate(() => {
                     return Array.from(document.querySelectorAll('div[id="hover-items"] > a:nth-child(1)')).map(p => p.href);
                 });
+                console.log("got playlist hrefs");
             } else {
                 await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
                 continue;
