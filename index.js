@@ -22,21 +22,24 @@ const MaxMp3Workers = 16;
 let videos = [];
 let firstLoop = true;
 
-async function WaitForSelector(page, selector, timeout = 60, option = true) {  // 60 ticks = 6 seconds
-    return await page.evaluate((selector, timeout, option) =>
+async function WaitForSelector(page, selector, option = true, timeout = 60) {  // 60 ticks = 6 seconds
+    return await page.evaluate((selector, option, timeout) =>
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
-                if (document.querySelector(selector) && (option || document.querySelector(selector).offsetParent)) {    // visible element
-                    clearInterval(interval);
-                    resolve(true);
+                console.log(ticks);
+                if (document.querySelector(selector)) {
+                    if (option || document.querySelector(selector).offsetParent) {
+                        clearInterval(interval);
+                        resolve(true);
+                    }
                 }
                 if (++ticks > timeout) {
                     clearInterval(interval);
                     resolve(false);
                 }
             }, 100);
-        }), selector, timeout, option);
+        }), selector, option, timeout);
 }
 
 async function WaitForFile(fileName, timeout = 40) {  // 40 ticks = 4 seconds
@@ -89,11 +92,7 @@ async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
 // })();
 
 // return;
-
 puppeteer.launch({ headless: false }).then(async browser => {
-    fs.readdirSync("./errorlogs").forEach(file => {
-        fs.unlinkSync(path.join("./errorlogs", file));
-    });
     console.log("IMAGE_PATH: ", ImagePath);
     console.log("FFMPEG_PATH: ", FfmpegPath);
     console.log("EMAIL: ", Email);
@@ -106,18 +105,17 @@ puppeteer.launch({ headless: false }).then(async browser => {
         console.log(TextPathSelector[i]);
     }
 
-    let page;
     let accountIndex = 0;
     while (true) {
         browser.close();
         browser = await puppeteer.launch({ headless: false });
-        page = await browser.newPage();
-        // page.on('console', async (msg) => {
-        //     const msgArgs = msg.args();
-        //     for (let i = 0; i < msgArgs.length; ++i) {
-        //       console.log(await msgArgs[i].jsonValue());
-        //     }
-        //   });
+        let page = await browser.newPage();
+        page.on('console', async (msg) => {
+            const msgArgs = msg.args();
+            for (let i = 0; i < msgArgs.length; ++i) {
+              console.log(await msgArgs[i].jsonValue());
+            }
+          });
         // await page.setUserAgent(userAgent.toString());
         // use chrome and see if that stops the popup
 
@@ -247,9 +245,11 @@ puppeteer.launch({ headless: false }).then(async browser => {
                 console.log("No videos found\n");
             }
         }
-        return;
 
         if (firstLoop) {
+            fs.readdirSync("./errorlogs").forEach(file => {
+                fs.unlinkSync(path.join("./errorlogs", file));
+            });
             fs.readdirSync("./textfiles").forEach(file => {
                 fs.unlinkSync(`./textfiles/${file}`);
             });
