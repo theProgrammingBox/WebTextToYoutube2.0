@@ -27,7 +27,7 @@ async function WaitForSelector(page, selector, timeout = 60) {  // 60 ticks = 6 
         new Promise((resolve) => {
             var ticks = 0;
             const interval = setInterval(() => {
-                if (document.querySelector(selector)) {
+                if (document.querySelector(selector).offsetParent) {    // visible element
                     clearInterval(interval);
                     resolve(true);
                 } else {
@@ -133,7 +133,10 @@ puppeteer.launch({ headless: false }).then(async browser => {
 
         if (await WaitForSelector(page, 'input[type="password"]')) {
             await page.type('input[type="password"]', Password[accountIndex]);
-            await page.keyboard.press("Enter");
+            await Promise.all([
+                page.waitForNavigation(),
+                await page.keyboard.press("Enter"),
+            ]);
         } else {
             await page.screenshot({ path: `./errorlogs/${Date.now()}.png` });
             continue;
@@ -149,10 +152,12 @@ puppeteer.launch({ headless: false }).then(async browser => {
             currentPlaylistTitles = await page.evaluate(() => {
                 return Array.from(document.querySelectorAll('h3[class="playlist-title style-scope ytcp-playlist-row"]')).map(p => p.innerText);
             });
-        }
-        console.log("\nCurrent playlists:");
-        for (let i = 0; i < currentPlaylistTitles.length; i++) {
-            console.log(currentPlaylistTitles[i]);
+            console.log("\nCurrent playlists:");
+            for (let i = 0; i < currentPlaylistTitles.length; i++) {
+                console.log(currentPlaylistTitles[i]);
+            }
+        } else {
+            console.log("No playlists found");
         }
 
         if (!currentPlaylistTitles.includes(NovelTitle)) {
