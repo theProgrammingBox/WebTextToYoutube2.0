@@ -372,10 +372,6 @@ async function BufferTextfiles() {
 }
 
 async function BufferMp4s() {
-    fs.readdirSync("./mp3s").forEach(file => {
-        fs.unlinkSync(`./mp3s/${file}`);
-    });
-
     let numWorkers = 0;
     let chapter = 1;
     while (true) {
