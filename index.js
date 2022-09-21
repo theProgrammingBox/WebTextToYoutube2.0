@@ -236,6 +236,15 @@ puppeteer.launch({ headless: true }).then(async browser => {
         }
 
         if (firstLoop) {
+            fs.readdirSync("./textfiles").forEach(file => {
+                fs.unlinkSync(`./textfiles/${file}`);
+            });
+            fs.readdirSync("./mp3s").forEach(file => {
+                fs.unlinkSync(`./mp3s/${file}`);
+            });
+            fs.readdirSync("./mp4s").forEach(file => {
+                fs.unlinkSync(`./mp4s/${file}`);
+            });
             BufferTextfiles(); // run these at the same time
             BufferMp3s();
             BufferMp4s();
