@@ -94,7 +94,7 @@ async function ScrollToBottom(page, timeout = 60) {  // 60 ticks = 6 seconds
 
 // return;
 
-puppeteer.launch({ headless: true }).then(async browser => {
+puppeteer.launch({ headless: false }).then(async browser => {
     fs.readdirSync("./errorlogs").forEach(file => {
         fs.unlinkSync(path.join("./errorlogs", file));
     });
@@ -123,7 +123,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
         }
 
         await page.goto("https://studio.youtube.com/channel/UC/playlists");
-        if (await WaitForSelector('input[type="email"]')) {
+        if (await WaitForSelector(page, 'input[type="email"]')) {
             await page.type('input[type="email"]', Email[accountIndex]);
             await page.keyboard.press("Enter");
         } else {
@@ -131,7 +131,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
             continue;
         }
 
-        if (await WaitForSelector('input[type="password"]')) {
+        if (await WaitForSelector(page, 'input[type="password"]')) {
             await page.type('input[type="password"]', Password[accountIndex]);
             await page.keyboard.press("Enter");
         } else {
@@ -156,7 +156,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
         }
 
         if (!currentPlaylistTitles.includes(NovelTitle)) {
-            // await page.waitForSelector('ytcp-button[id="new-playlist-button"]');
+            // await page.WaitForSelector(page, 'ytcp-button[id="new-playlist-button"]');
             if (await WaitForSelector(page, 'ytcp-button[id="new-playlist-button"]')) {
                 await page.click('ytcp-button[id="new-playlist-button"]');
             } else {
@@ -164,7 +164,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('textarea[class="style-scope ytcp-form-textarea"]');
+            // await page.WaitForSelector(page, 'textarea[class="style-scope ytcp-form-textarea"]');
             if (await WaitForSelector(page, 'textarea[class="style-scope ytcp-form-textarea"]')) {
                 await page.type('textarea[class="style-scope ytcp-form-textarea"]', NovelTitle);
             } else {
@@ -172,7 +172,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
+            // await page.WaitForSelector(page, 'ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
             if (await WaitForSelector(page, 'ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]')) {
                 await page.click('ytcp-dropdown-trigger[class=" has-label style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]');
             } else {
@@ -180,7 +180,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('tp-yt-paper-item[test-id="PRIVATE"]');
+            // await page.WaitForSelector(page, 'tp-yt-paper-item[test-id="PRIVATE"]');
             if (await WaitForSelector(page, 'tp-yt-paper-item[test-id="PRIVATE"]')) {
                 await page.click('tp-yt-paper-item[test-id="PRIVATE"]');
             } else {
@@ -188,7 +188,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('ytcp-button[id="create-button"]');
+            // await page.WaitForSelector(page, 'ytcp-button[id="create-button"]');
             if (await WaitForSelector(page, 'ytcp-button[id="create-button"]')) {
                 await page.click('ytcp-button[id="create-button"]');
             } else {
@@ -205,7 +205,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
             console.log(`\nCreated playlist "${NovelTitle}"`);
         } else {
             let playlistIndex = currentPlaylistTitles.indexOf(NovelTitle);
-            // await page.waitForSelector('div[id="hover-items"] > a:nth-child(1)');
+            // await page.WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)');
             let currentPlaylistHrefs;
             if (await WaitForSelector(page, 'div[id="hover-items"] > a:nth-child(1)')) {
                 currentPlaylistHrefs = await page.evaluate(() => {
@@ -234,6 +234,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 console.log("No videos found\n");
             }
         }
+        return;
 
         if (firstLoop) {
             fs.readdirSync("./textfiles").forEach(file => {
@@ -274,7 +275,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
             // const elementHandle = await page.$('input[type="file"]');
             // await elementHandle.uploadFile(mp4Path);
 
-            // await page.waitForSelector(
+            // await page.WaitForSelector(page, 
             //     'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]'
             // );
             if (await WaitForSelector(page, 'ytcp-dropdown-trigger[class="use-placeholder style-scope ytcp-text-dropdown-trigger style-scope ytcp-text-dropdown-trigger"]')) {
@@ -296,7 +297,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
 
             let playlistIndex = playlistTitles.indexOf(NovelTitle);
 
-            // await page.waitForSelector(`#checkbox-${playlistIndex}`);
+            // await page.WaitForSelector(page, `#checkbox-${playlistIndex}`);
             if (await WaitForSelector(page, `#checkbox-${playlistIndex}`)) {
                 await page.click(`#checkbox-${playlistIndex}`);
             } else {
@@ -304,7 +305,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector(
+            // await page.WaitForSelector(page, 
             //     'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]'
             // );
             if (await WaitForSelector(page, 'ytcp-button[class="done-button action-button style-scope ytcp-playlist-dialog"]')) {
@@ -314,7 +315,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
+            // await page.WaitForSelector(page, 'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
             if (await WaitForSelector(page, 'tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]')) {
                 await page.click('tp-yt-paper-radio-button[name="VIDEO_MADE_FOR_KIDS_NOT_MFK"]');
             } else {
@@ -322,7 +323,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector("#step-badge-3");
+            // await page.WaitForSelector(page, "#step-badge-3");
             if (await WaitForSelector(page, "#step-badge-3")) {
                 await page.click("#step-badge-3");
             } else {
@@ -330,7 +331,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('tp-yt-paper-radio-button[name="PRIVATE"]');
+            // await page.WaitForSelector(page, 'tp-yt-paper-radio-button[name="PRIVATE"]');
             if (await WaitForSelector(page, 'tp-yt-paper-radio-button[name="PRIVATE"]')) {
                 await page.click('tp-yt-paper-radio-button[name="PRIVATE"]');
             } else {
@@ -338,7 +339,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector("#done-button");
+            // await page.WaitForSelector(page, "#done-button");
             if (await WaitForSelector(page, "#done-button")) {
                 await page.click("#done-button");
             } else {
@@ -346,7 +347,7 @@ puppeteer.launch({ headless: true }).then(async browser => {
                 continue;
             }
 
-            // await page.waitForSelector('ytcp-button[id="close-button"]');
+            // await page.WaitForSelector(page, 'ytcp-button[id="close-button"]');
             if (await WaitForSelector(page, 'ytcp-button[id="close-button"]')) {
                 console.log(`Uploaded ${chapterTitle}`);
                 videos.push(chapterTitle);
